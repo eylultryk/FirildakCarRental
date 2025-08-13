@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Araç Listesi</title>
+  <style>
+    body { background-color: #1e1e1e; color: white; font-family: sans-serif; margin: 0; padding: 0; }
+
+    /* Navbar */
+    nav {
+      background-color: #121212;
+      padding: 15px;
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      border-bottom: 2px solid #1a73e8;
+    }
+    nav a {
+      color: white;
+      text-decoration: none;
+      font-weight: bold;
+      padding: 8px 15px;
+      border-radius: 5px;
+      transition: background-color 0.3s;
+    }
+    nav a:hover {
+      background-color: #1a73e8;
+    }
+
+    /* Sayfa içeriği */
+    .container {
+      padding: 30px;
+    }
+
+    table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+    th, td { padding: 12px; border: 1px solid #333; text-align: left; }
+    input, select, button { padding: 10px; margin: 5px 0; width: 100%; border-radius: 5px; border: none; }
+    button { background-color: #1a73e8; color: white; cursor: pointer; }
+    button:hover { background-color: #1669c1; }
+  </style>
+</head>
+<body>
+
+  <!-- NAVBAR -->
+  <nav>
+    <a href="araclar.html">Araçlar</a>
+    <a href="kirala.html">Kirala</a>
+    <a href="kiralamalar.html">Kiralamalar</a>
+    <a href="kullanici-kayit.html">Kayıt Ol</a>
+    <a href="login.html">Giriş Yap</a>
+  </nav>
+
+  <div class="container">
+    <h1>Araç Listesi</h1>
+    <table id="aracTablosu">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Marka/Model</th>
+          <th>Plaka</th>
+          <th>Günlük Ücret</th>
+          <th>Durum</th>
+          <th>İşlem</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+
+    <h2>Yeni Araç Ekle</h2>
+    <form id="aracForm">
+      <input type="text" id="markaModel" placeholder="Marka / Model" required />
+      <input type="text" id="plaka" placeholder="Plaka" required />
+      <input type="number" id="gunlukUcret" placeholder="Günlük Ücret" required />
+      <select id="durum">
+        <option value="Uygun">Uygun</option>
+        <option value="Kiralandı">Kiralandı</option>
+      </select>
+      <button type="submit">Aracı Ekle</button>
+    </form>
+  </div>
+
+  <script>
+    async function araclariYukle() {
+      try {
+        const response = await fetch("https://localhost:7058/api/arac");
+        const araclar = await response.json();
+        const tbody = document.querySelector("#aracTablosu tbody");
+        tbody.innerHTML = "";
+
+        araclar.forEach(arac => {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td>${arac.id}</td>
+            <td>${arac.markaModel}</td>
+            <td>${arac.plaka}</td>
+            <td>${arac.gunlukUcret}</td>
+            <td>${arac.durum}</td>
+            <td><button onclick="durumGuncelle(${arac.id})">Durumu Değiştir</button></td>
+          `;
+          tbody.appendChild(tr);
+        });
+      } catch (err) {
+        alert("Araçlar yüklenemedi: " + err.message);
+      }
+    }
+
+    async function aracEkle(event) {
+      event.preventDefault();
+      const yeniArac = {
+        markaModel: document.getElementById("markaModel").value,
+        plaka: document.getElementById("plaka").value,
+        gunlukUcret: parseFloat(document.getElementById("gunlukUcret").value),
+        durum: document.getElementById("durum").value
+      };
+
+      try {
+        const response = await fetch("https://localhost:7058/api/arac", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(yeniArac)
+        });
+
+        if (response.ok) {
+          alert("Araç eklendi!");
+          document.getElementById("aracForm").reset();
+          araclariYukle();
+        } else {
+          const text = await response.text();
+          alert("Hata oluştu: " + text);
+        }
+      } catch (error) {
+        alert("Hata oluştu: " + error.message);
+      }
+    }
+
+    async function durumGuncelle(aracId) {
+      const yeniDurum = prompt("Yeni durum (Uygun / Kiralandı):");
+      if (!yeniDurum || (yeniDurum !== "Uygun" && yeniDurum !== "Kiralandı")) {
+        alert("Geçersiz durum girdisi!");
+        return;
+      }
+
+      try {
+        const response = await fetch(`https://localhost:7058/api/arac/${aracId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ durum: yeniDurum })
+        });
+
+        if (response.ok) {
+          alert("Durum güncellendi!");
+          araclariYukle();
+        } else {
+          const err = await response.text();
+          alert("Güncelleme hatası: " + err);
+        }
+      } catch (error) {
+        alert("İstek hatası: " + error.message);
+      }
+    }
+
+    document.getElementById("aracForm").addEventListener("submit", aracEkle);
+    window.onload = araclariYukle;
+  </script>
+</body>
+</html>
+

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <title>Kayıt Ol</title>
+</head>
+<body>
+  <h2>Kullanıcı Kaydı</h2>
+
+  <input id="kullaniciAdi" placeholder="Kullanıcı Adı">
+  <input id="sifre" placeholder="Şifre" type="password">
+  <input id="adSoyad" placeholder="Ad Soyad">
+  <button onclick="kayitOl()">Kayıt Ol</button>
+
+  <script>
+    async function kayitOl() {
+      const kullaniciAdi = document.getElementById("kullaniciAdi").value;
+      const sifre = document.getElementById("sifre").value;
+      const adSoyad = document.getElementById("adSoyad").value;
+
+      try {
+        const response = await fetch("https://localhost:7058/api/kullanici/kayit", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ kullaniciAdi, sifre, adSoyad })
+        });
+
+        if (response.ok) {
+          alert("Kayıt başarılı!");
+        } else {
+          const msg = await response.text();
+          alert("Hata: " + msg);
+        }
+      } catch (err) {
+        console.error(err);
+        alert("Bağlantı hatası: " + err.message);
+      }
+    }
+  </script>
+</body>
+</html>

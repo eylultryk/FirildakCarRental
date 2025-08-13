@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <title>Araç Kirala</title>
+  <style>
+    body { background-color: #1e1e1e; color: white; font-family: Arial, sans-serif; padding: 30px; }
+    h1 { text-align: center; margin-bottom: 20px; }
+    form { max-width: 520px; margin: auto; background: #2a2a2a; padding: 20px; border-radius: 8px; }
+    label { margin-top: 10px; display: block; }
+    input, select, button {
+      padding: 10px; margin-top: 5px; width: 100%;
+      border: none; border-radius: 5px;
+    }
+    input, select { background: #333; color: white; }
+    button { background-color: #1a73e8; color: white; cursor: pointer; margin-top: 15px; }
+    button:hover { background-color: #1669c1; }
+    .msg { margin-top: 12px; font-weight: 700; }
+    .ok { color:#6ee7a8 } .err{ color:#fda4af }
+  </style>
+</head>
+<body>
+
+<h1>Araç Kirala</h1>
+<form id="kiralaForm">
+  <label for="kullaniciId">Kullanıcı ID</label>
+  <input type="text" id="kullaniciId" readonly>
+
+  <label for="aracId">Araç Seç</label>
+  <select id="aracId" required></select>
+
+  <label for="baslangicTarihi">Başlangıç Tarihi</label>
+  <input type="date" id="baslangicTarihi" required>
+
+  <label for="bitisTarihi">Bitiş Tarihi</label>
+  <input type="date" id="bitisTarihi" required>
+
+  <button type="submit">Kirala</button>
+  <div id="mesaj" class="msg"></div>
+</form>
+
+<script>
+  const API = "https://localhost:7058/api";
+
+  document.addEventListener("DOMContentLoaded", init);
+
+  async function init(){
+    // kullanıcıyı oku
+    const uid = localStorage.getItem("userId");
+    if (!uid) { alert("Önce giriş yapmalısın."); location.href="login.html"; return; }
+    document.getElementById("kullaniciId").value = uid;
+
+    // tarihleri otomatik doldur
+    const today = new Date().toISOString().split("T")[0];
+    const tomorrow = new Date(Date.now()+86400000).toISOString().split("T")[0];
+    baslangicTarihi.value = today;
+    bitisTarihi.value = tomorrow;
+
+    // sadece UYGUN araçları listele
+    try{
+      const res = await fetch(`${API}/arac`);
+      const all = await res.json();
+      const uygun = all.filter(a => (a.durum||"").toLowerCase() === "uygun");
+      const sel = document.getElementById("aracId");
+      if(!uygun.length){
+        sel.innerHTML = `<option value="">Uygun araç yok</option>`;
+        sel.disabled = true;
+      }else{
+        sel.innerHTML = uygun.map(a =>
+          `<option value="${a.id}">${a.markaModel} - ${a.plaka} (₺${Number(a.gunlukUcret).toLocaleString("tr-TR")}/gün)</option>`
+        ).join("");
+      }
+    }catch(e){
+      document.getElementById("mesaj").textContent = "Araçlar yüklenemedi: "+e.message;
+      document.getElementById("mesaj").className = "msg err";
+    }
+  }
+
+  // Kiralama gönderimi (NESTED GÖVDE!)
+  document.getElementById("kiralaForm").addEventListener("submit", async (e)=>{
+    e.preventDefault();
+    const mesaj = document.getElementById("mesaj");
+    mesaj.textContent = ""; mesaj.className = "msg";
+
+    const uid = Number(document.getElementById("kullaniciId").value);
+    const aid = Number(document.getElementById("aracId").value);
+    const bas = document.getElementById("baslangicTarihi").value;
+    const bit = document.getElementById("bitisTarihi").value;
+
+    if (!aid || !bas || !bit) { mesaj.textContent="Lütfen tüm alanları doldur."; mesaj.className="msg err"; return; }
+
+    // Entity bekleyen backend için nested gönderim:
+    const body = {
+      kullanici: { id: uid },
+      arac:      { id: aid },
+      baslangicTarihi: bas,
+      bitisTarihi: bit
+    };
+
+    try{
+      const res = await fetch(`${API}/kiralama`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+
+      if (res.ok){
+        let out = "Kiralama başarılı!";
+        try{
+          const j = await res.json();
+          if (j.toplamUcret != null) out += ` Toplam: ₺${Number(j.toplamUcret).toLocaleString("tr-TR")}`;
+        }catch{}
+        mesaj.textContent = out;
+        mesaj.className = "msg ok";
+        // kiralanınca listeyi yenile (artık uygun olmayacak)
+        init();
+      }else{
+        const err = await res.text();
+        mesaj.textContent = err || "Kiralama başarısız.";
+        mesaj.className = "msg err";
+      }
+    }catch(e){
+      mesaj.textContent = "İstek hatası: "+e.message;
+      mesaj.className = "msg err";
+    }
+  });
+</script>
+
+</body>
+</html>
